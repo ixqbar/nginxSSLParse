@@ -70,16 +70,18 @@ func hostsScan(cliContext *cli.Context) error {
 			continue
 		}
 
-		sslFiles := directives[0].GetParameters()
-		if len(sslFiles) == 0 {
-			continue
-		}
+		for _, directive := range directives {
+			sslFiles := directive.GetParameters()
+			if len(sslFiles) == 0 {
+				continue
+			}
 
-		if tmpFile, err := os.Stat(sslFiles[0]); err != nil || tmpFile.Size() == 0 {
-			continue
-		}
+			if tmpFile, err := os.Stat(sslFiles[0]); err != nil || tmpFile.Size() == 0 {
+				continue
+			}
 
-		go parserSslFile(cliContext, sslFiles[0])
+			go parserSslFile(cliContext, sslFiles[0])
+		}
 	}
 
 	return nil
