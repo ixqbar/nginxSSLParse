@@ -58,14 +58,13 @@ func hostsScan(cliContext *cli.Context) error {
 	}
 	//读取文件内容找到对应 ssl_certificate 指令文件
 	for _, confFile := range allConfFiles {
-		p, err := parser.NewParser(confFile)
+		confRaw, err := os.ReadFile(confFile)
 		if err != nil {
-			log.Printf("parse %s faile %v\n", confFile, err)
+			log.Printf("readConfFile fail %v", err)
 			continue
 		}
 
-		config := p.Parse()
-		directives := config.FindDirectives("ssl_certificate")
+		directives := parser.NewStringParser(string(confRaw)).Parse().FindDirectives("ssl_certificate")
 		if len(directives) == 0 {
 			continue
 		}
