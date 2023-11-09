@@ -10,10 +10,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
-func parserSslFile(cliContext *cli.Context, sslFile string) {
+func parserSslFile(cliContext *cli.Context, wg *sync.WaitGroup, sslFile string) {
+	defer wg.Done()
+
 	sslRaw, err := os.ReadFile(sslFile)
 	if err != nil {
 		log.Printf("readSSLFile %s failed %v\n", sslFile, err)
@@ -51,6 +54,8 @@ func hostsScan(cliContext *cli.Context) error {
 	folder := cliContext.String("folder")
 	suffix := cliContext.String("suffix")
 
+	var wg sync.WaitGroup
+
 	//找到所有符合结尾的文件列表
 	allConfFiles, err := filepath.Glob(path.Join(folder, "*."+suffix))
 	if err != nil {
@@ -79,9 +84,12 @@ func hostsScan(cliContext *cli.Context) error {
 				continue
 			}
 
-			go parserSslFile(cliContext, sslFiles[0])
+			wg.Add(1)
+			go parserSslFile(cliContext, &wg, sslFiles[0])
 		}
 	}
+
+	wg.Done()
 
 	return nil
 }
