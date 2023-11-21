@@ -89,7 +89,7 @@ func hostsScan(cliContext *cli.Context) error {
 		}
 	}
 
-	wg.Done()
+	wg.Wait()
 
 	return nil
 }
