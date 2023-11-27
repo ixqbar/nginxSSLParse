@@ -38,14 +38,14 @@ func parserSslFile(cliContext *cli.Context, wg *sync.WaitGroup, sslFile string) 
 	if x509Cert.NotAfter.Before(time.Now().Add(time.Hour * 24 * time.Duration(cliContext.Int("day")))) {
 		log.Printf("foundSSLFile %s StartAt=%s,EndAt=\u001B[0;31m%s\033[0m \n",
 			sslFile,
-			x509Cert.NotBefore.Format("2006-01-02 15:04"),
-			x509Cert.NotAfter.Format("2006-01-02 15:04"),
+			x509Cert.NotBefore.String(),
+			x509Cert.NotAfter.String(),
 		)
 	} else {
 		log.Printf("foundSSLFile %s StartAt=%s, EndAt=%s\n",
 			sslFile,
-			x509Cert.NotBefore.Format("2006-01-02 15:04"),
-			x509Cert.NotAfter.Format("2006-01-02 15:04"),
+			x509Cert.NotBefore.String(),
+			x509Cert.NotAfter.String(),
 		)
 	}
 }

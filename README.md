@@ -18,3 +18,8 @@ GLOBAL OPTIONS:
 ```
 
 * https://www.toutiao.com/article/7295621320380465690
+
+
+```
+openssl x509 -in bundle.crt -noout -dates
+```
