@@ -106,6 +106,11 @@ func main() {
 		Usage: "扫描检查ssl证书过期时间",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
+				Name:     "domain",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
 				Name:     "folder",
 				Value:    "",
 				Required: false,
@@ -124,6 +129,10 @@ func main() {
 	}
 
 	app.Action = func(cliContext *cli.Context) error {
+		if len(cliContext.String("domain")) > 0 && strings.HasPrefix(cliContext.String("domain"), "https://") {
+			return domainChecker(cliContext.String("domain"))
+		}
+
 		if len(cliContext.String("folder")) == 0 || len(cliContext.String("suffix")) == 0 || strings.Contains(cliContext.String("suffix"), ".") == true {
 			return cli.ShowAppHelp(cliContext)
 		}

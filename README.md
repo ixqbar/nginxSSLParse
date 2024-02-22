@@ -11,7 +11,8 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --folder value
+   --domain value  
+   --folder value  
    --suffix value  (default: "conf")
    --day value     (default: 30)
    --help          show help
@@ -23,3 +24,6 @@ GLOBAL OPTIONS:
 ```
 openssl x509 -in bundle.crt -noout -dates
 ```
+
+### thanks
+* https://github.com/usysrc/ssl-expiry
