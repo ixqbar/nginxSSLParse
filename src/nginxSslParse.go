@@ -3,8 +3,7 @@ package main
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/tufanbarisyildirim/gonginx/parser"
-	"github.com/urfave/cli/v2"
+	"errors"
 	"log"
 	"os"
 	"path"
@@ -12,42 +11,72 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tufanbarisyildirim/gonginx/parser"
+	"github.com/urfave/cli/v2"
 )
 
-func parserSslFile(cliContext *cli.Context, wg *sync.WaitGroup, sslFile string) {
-	defer wg.Done()
+var Loc *time.Location = nil
+
+func init() {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Printf("初始化时区失败 %v", err)
+		return
+	}
+
+	Loc = loc
+}
+
+func formatTimeToStr(time time.Time) string {
+	if Loc == nil {
+		return time.Format("2006-01-02 15:04:05")
+	} else {
+		return time.In(Loc).Format("2006-01-02 15:04:05")
+	}
+}
+
+func parserSslFile(cliContext *cli.Context, wg *sync.WaitGroup, sslFile, host string) error {
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	sslRaw, err := os.ReadFile(sslFile)
 	if err != nil {
-		log.Printf("readSSLFile %s failed %v\n", sslFile, err)
-		return
+		return err
 	}
 
-	certDERBlock, _ := pem.Decode(sslRaw)
-	if certDERBlock == nil {
-		log.Print(err)
-		return
+	block, _ := pem.Decode(sslRaw)
+	if block == nil {
+		return errors.New("pem decode failed")
 	}
 
-	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 
-	if x509Cert.NotAfter.Before(time.Now().Add(time.Hour * 24 * time.Duration(cliContext.Int("day")))) {
-		log.Printf("foundSSLFile %s StartAt=%s,EndAt=\u001B[0;31m%s\033[0m \n",
-			sslFile,
-			x509Cert.NotBefore.String(),
-			x509Cert.NotAfter.String(),
-		)
-	} else {
-		log.Printf("foundSSLFile %s StartAt=%s, EndAt=%s\n",
-			sslFile,
-			x509Cert.NotBefore.String(),
-			x509Cert.NotAfter.String(),
-		)
+	// 判断是否接近过期
+	dayThreshold := time.Hour * 24 * time.Duration(cliContext.Int("day"))
+	isWarning := cert.NotAfter.Before(time.Now().Add(dayThreshold))
+
+	// 构造统一输出格式
+	start := formatTimeToStr(cert.NotBefore)
+	end := formatTimeToStr(cert.NotAfter)
+	colorEnd := end
+	if isWarning {
+		colorEnd = "\033[0;31m" + end + "\033[0m"
 	}
+
+	// 构造输出主体
+	target := sslFile
+	if host != "" {
+		target = "https://" + host
+	}
+
+	log.Printf("%s StartAt=%s, EndAt=%s\n", target, start, colorEnd)
+
+	return nil
 }
 
 func hostsScan(cliContext *cli.Context) error {
@@ -69,7 +98,9 @@ func hostsScan(cliContext *cli.Context) error {
 			continue
 		}
 
-		directives := parser.NewStringParser(string(confRaw)).Parse().FindDirectives("ssl_certificate")
+		config := parser.NewStringParser(string(confRaw)).Parse()
+
+		directives := config.FindDirectives("ssl_certificate")
 		if len(directives) == 0 {
 			continue
 		}
@@ -85,7 +116,10 @@ func hostsScan(cliContext *cli.Context) error {
 			}
 
 			wg.Add(1)
-			go parserSslFile(cliContext, &wg, sslFiles[0])
+
+			host := config.FindDirectives("server_name")[0].GetParameters()[0]
+
+			go parserSslFile(cliContext, &wg, sslFiles[0], host)
 		}
 	}
 
@@ -116,6 +150,11 @@ func main() {
 				Required: false,
 			},
 			&cli.StringFlag{
+				Name:     "file",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
 				Name:     "suffix",
 				Value:    "conf",
 				Required: false,
@@ -131,6 +170,10 @@ func main() {
 	app.Action = func(cliContext *cli.Context) error {
 		if len(cliContext.String("domain")) > 0 && strings.HasPrefix(cliContext.String("domain"), "https://") {
 			return domainChecker(cliContext.String("domain"))
+		}
+
+		if len(cliContext.String("file")) > 0 {
+			return parserSslFile(cliContext, nil, cliContext.String("file"), "")
 		}
 
 		if len(cliContext.String("folder")) == 0 || len(cliContext.String("suffix")) == 0 || strings.Contains(cliContext.String("suffix"), ".") == true {
